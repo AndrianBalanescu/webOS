@@ -8,51 +8,636 @@ SPDX-License-Identifier: Apache-2.0
 <html>
 
 <head>
-	<title>new app</title>
+	<title>webOS TV System Explorer</title>
 	<style type="text/css">
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
 		body {
 			width: 100%;
 			height: 100%;
-			background-color: #202020;
-		}
-
-		div {
-			position: absolute;
-			height: 100%;
-			width: 100%;
-			display: table;
-		}
-
-		h1 {
-			display: table-cell;
-			vertical-align: middle;
-			text-align: center;
+			background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 			color: #FFFFFF;
+			overflow-x: hidden;
 		}
 
+		.container {
+			padding: 20px;
+			max-width: 1920px;
+			margin: 0 auto;
+		}
+
+		.header {
+			text-align: center;
+			padding: 30px 0;
+			border-bottom: 3px solid rgba(255, 255, 255, 0.3);
+			margin-bottom: 30px;
+		}
+
+		.header h1 {
+			font-size: 48px;
+			margin-bottom: 10px;
+			text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+		}
+
+		.header p {
+			font-size: 18px;
+			opacity: 0.9;
+		}
+
+		.section {
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 10px;
+			padding: 25px;
+			margin-bottom: 25px;
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.2);
+		}
+
+		.section-title {
+			font-size: 28px;
+			margin-bottom: 20px;
+			color: #FFD700;
+			border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+			padding-bottom: 10px;
+		}
+
+		.info-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+			gap: 15px;
+		}
+
+		.info-item {
+			background: rgba(0, 0, 0, 0.3);
+			padding: 15px;
+			border-radius: 8px;
+			border-left: 4px solid #4CAF50;
+		}
+
+		.info-label {
+			font-size: 14px;
+			color: #B0BEC5;
+			margin-bottom: 5px;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+		}
+
+		.info-value {
+			font-size: 18px;
+			font-weight: bold;
+			color: #FFFFFF;
+			word-break: break-word;
+		}
+
+		.info-description {
+			font-size: 12px;
+			color: #90A4AE;
+			margin-top: 5px;
+			font-style: italic;
+		}
+
+		.status-badge {
+			display: inline-block;
+			padding: 5px 12px;
+			border-radius: 20px;
+			font-size: 12px;
+			font-weight: bold;
+			margin-left: 10px;
+		}
+
+		.status-success {
+			background: #4CAF50;
+			color: white;
+		}
+
+		.status-error {
+			background: #F44336;
+			color: white;
+		}
+
+		.status-warning {
+			background: #FF9800;
+			color: white;
+		}
+
+		.status-info {
+			background: #2196F3;
+			color: white;
+		}
+
+		.loading {
+			color: #FFD700;
+			font-style: italic;
+		}
+
+		.error {
+			color: #F44336;
+		}
+
+		.json-display {
+			background: rgba(0, 0, 0, 0.5);
+			padding: 15px;
+			border-radius: 8px;
+			font-family: 'Courier New', monospace;
+			font-size: 12px;
+			overflow-x: auto;
+			max-height: 300px;
+			overflow-y: auto;
+			white-space: pre-wrap;
+			word-wrap: break-word;
+		}
+
+		.button {
+			background: #4CAF50;
+			color: white;
+			border: none;
+			padding: 10px 20px;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 14px;
+			margin: 5px;
+			transition: background 0.3s;
+		}
+
+		.button:hover {
+			background: #45a049;
+		}
+
+		.button:active {
+			transform: scale(0.98);
+		}
+
+		.refresh-btn {
+			position: fixed;
+			bottom: 30px;
+			right: 30px;
+			background: #2196F3;
+			color: white;
+			border: none;
+			padding: 15px 25px;
+			border-radius: 50px;
+			cursor: pointer;
+			font-size: 16px;
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+			z-index: 1000;
+		}
+
+		.refresh-btn:hover {
+			background: #1976D2;
+		}
+
+		.timestamp {
+			text-align: center;
+			color: #B0BEC5;
+			font-size: 14px;
+			margin-top: 20px;
+		}
 	</style>
 </head>
 
 <script src="webOSTVjs-1.2.10/webOSTV.js" charset="utf-8"></script>
 <script src="webOSTVjs-1.2.10/webOSTV-dev.js" charset="utf-8"></script>
 <script type="text/javascript">
-	//sample code for calling LS2 API
-	webOS.service.request("luna://com.palm.systemservice", {
-		method: "clock/getTime",
-		parameters: {},
-		onSuccess: function (args) {
-			console.log("UTC:", args.utc);
-		},
-		onFailure: function (args) {
-			console.log("Failed to getTime");
+	// Global data storage
+	var appData = {
+		deviceInfo: null,
+		systemInfo: null,
+		platformInfo: null,
+		appInfo: null,
+		networkStatus: null,
+		timeInfo: null,
+		services: {}
+	};
+
+	// Initialize when system is ready
+	webOS.onSystemReady = function() {
+		console.log("System is ready - Starting exploration...");
+		loadAllData();
+	};
+
+	// If system is already ready
+	if (window.PalmSystem && window.PalmSystem.stageReady) {
+		window.PalmSystem.stageReady();
+	}
+
+	function loadAllData() {
+		loadDeviceInfo();
+		loadSystemInfo();
+		loadPlatformInfo();
+		loadAppInfo();
+		loadNetworkStatus();
+		loadTimeInfo();
+		testLunaServices();
+	}
+
+	function loadDeviceInfo() {
+		webOS.deviceInfo(function(info) {
+			appData.deviceInfo = info;
+			displayDeviceInfo(info);
+		});
+	}
+
+	function loadSystemInfo() {
+		var sysInfo = webOS.systemInfo();
+		appData.systemInfo = sysInfo;
+		displaySystemInfo(sysInfo);
+	}
+
+	function loadPlatformInfo() {
+		var platform = webOS.platform;
+		appData.platformInfo = platform;
+		displayPlatformInfo(platform);
+	}
+
+	function loadAppInfo() {
+		var appId = webOS.fetchAppId();
+		var appRoot = webOS.fetchAppRootPath();
+		var libVersion = webOS.libVersion;
+
+		webOS.fetchAppInfo(function(appInfo) {
+			appData.appInfo = {
+				id: appId,
+				root: appRoot,
+				libVersion: libVersion,
+				info: appInfo
+			};
+			displayAppInfo(appData.appInfo);
+		});
+	}
+
+	function loadNetworkStatus() {
+		if (window.webOSDev && webOSDev.connection) {
+			webOSDev.connection.getStatus({
+				subscribe: false,
+				onSuccess: function(status) {
+					appData.networkStatus = status;
+					displayNetworkStatus(status);
+				},
+				onFailure: function(error) {
+					appData.networkStatus = { error: error };
+					displayNetworkStatus({ error: error });
+				}
+			});
+		} else {
+			displayNetworkStatus({ error: "webOSDev.connection not available" });
 		}
+	}
+
+	function loadTimeInfo() {
+		webOS.service.request("luna://com.palm.systemservice", {
+			method: "clock/getTime",
+			parameters: {},
+			onSuccess: function(response) {
+				appData.timeInfo = response;
+				displayTimeInfo(response);
+			},
+			onFailure: function(error) {
+				appData.timeInfo = { error: error };
+				displayTimeInfo({ error: error });
+			}
+		});
+	}
+
+	function testLunaServices() {
+		// Test Application Manager
+		testApplicationManager();
+		
+		// Test Settings Service
+		testSettingsService();
+		
+		// Test System Properties
+		testSystemProperties();
+	}
+
+	function testApplicationManager() {
+		webOS.service.request("luna://com.webos.applicationManager", {
+			method: "listApps",
+			parameters: {},
+			onSuccess: function(response) {
+				appData.services.applicationManager = {
+					success: true,
+					appsCount: response.apps ? response.apps.length : 0,
+					data: response
+				};
+				displayServiceResult("Application Manager", appData.services.applicationManager);
+			},
+			onFailure: function(error) {
+				appData.services.applicationManager = { success: false, error: error };
+				displayServiceResult("Application Manager", appData.services.applicationManager);
+			}
+		});
+	}
+
+	function testSettingsService() {
+		webOS.service.request("luna://com.webos.settingsservice", {
+			method: "getSystemSettings",
+			parameters: {
+				category: "option",
+				keys: ["country", "localeInfo", "timeFormat"]
+			},
+			onSuccess: function(response) {
+				appData.services.settings = {
+					success: true,
+					data: response
+				};
+				displayServiceResult("Settings Service", appData.services.settings);
+			},
+			onFailure: function(error) {
+				appData.services.settings = { success: false, error: error };
+				displayServiceResult("Settings Service", appData.services.settings);
+			}
+		});
+	}
+
+	function testSystemProperties() {
+		webOS.service.request("luna://com.webos.service.tv.systemproperty", {
+			method: "getSystemInfo",
+			parameters: {
+				keys: ["modelName", "sdkVersion", "firmwareVersion", "UHD", "OLED"]
+			},
+			onSuccess: function(response) {
+				appData.services.systemProperty = {
+					success: true,
+					data: response
+				};
+				displayServiceResult("System Properties", appData.services.systemProperty);
+			},
+			onFailure: function(error) {
+				appData.services.systemProperty = { success: false, error: error };
+				displayServiceResult("System Properties", appData.services.systemProperty);
+			}
+		});
+	}
+
+	function displayDeviceInfo(info) {
+		var html = '<div class="info-grid">';
+		
+		if (info) {
+			html += createInfoItem("Model Name", info.modelName || "N/A", "TV model identifier");
+			html += createInfoItem("Firmware Version", info.version || "N/A", "Current firmware version");
+			html += createInfoItem("Version Major", info.versionMajor || "N/A", "Major version number");
+			html += createInfoItem("Version Minor", info.versionMinor || "N/A", "Minor version number");
+			html += createInfoItem("Version Dot", info.versionDot || "N/A", "Patch version number");
+			html += createInfoItem("SDK Version", info.sdkVersion || "N/A", "webOS SDK version");
+			html += createInfoItem("Screen Resolution", (info.screenWidth || "N/A") + " x " + (info.screenHeight || "N/A"), "Display resolution in pixels");
+			html += createInfoItem("UHD Support", formatBoolean(info.uhd), "Ultra High Definition (4K) support");
+			html += createInfoItem("8K Support", formatBoolean(info.uhd8K), "8K resolution support");
+			html += createInfoItem("OLED Display", formatBoolean(info.oled), "OLED panel technology");
+			html += createInfoItem("HDR10 Support", formatBoolean(info.hdr10), "HDR10 high dynamic range");
+			html += createInfoItem("Dolby Vision", formatBoolean(info.dolbyVision), "Dolby Vision HDR support");
+			html += createInfoItem("Dolby Atmos", formatBoolean(info.dolbyAtmos), "Dolby Atmos audio support");
+			html += createInfoItem("Brand Name", info.brandName || "N/A", "TV brand identifier");
+			html += createInfoItem("Manufacturer", info.manufacturer || "N/A", "Device manufacturer");
+			html += createInfoItem("Mainboard Maker", info.mainboardMaker || "N/A", "Mainboard manufacturer");
+			html += createInfoItem("DDR Size", info.ddrSize || "N/A", "System memory size");
+			html += createInfoItem("TV Tuner", formatBoolean(info.tuner), "Built-in TV tuner availability");
+			html += createInfoItem("Platform Type", info.platformBizType || "N/A", "Platform business type");
+		} else {
+			html += '<div class="info-item"><span class="error">Failed to load device information</span></div>';
+		}
+		
+		html += '</div>';
+		document.getElementById('device-info-content').innerHTML = html;
+	}
+
+	function displaySystemInfo(info) {
+		var html = '<div class="info-grid">';
+		
+		if (info) {
+			html += createInfoItem("Country", info.country || "N/A", "Device country code");
+			html += createInfoItem("Smart Service Country", info.smartServiceCountry || "N/A", "Smart service region");
+			html += createInfoItem("Timezone", info.timezone || "N/A", "System timezone");
+		} else {
+			html += '<div class="info-item"><span class="error">Failed to load system information</span></div>';
+		}
+		
+		html += '</div>';
+		document.getElementById('system-info-content').innerHTML = html;
+	}
+
+	function displayPlatformInfo(platform) {
+		var html = '<div class="info-grid">';
+		
+		if (platform) {
+			html += createInfoItem("TV Platform", formatBoolean(platform.tv), "Running on webOS TV");
+			html += createInfoItem("Watch Platform", formatBoolean(platform.watch), "Running on Smart Watch");
+			html += createInfoItem("Open Platform", formatBoolean(platform.open), "webOS Open platform");
+			html += createInfoItem("Legacy Platform", formatBoolean(platform.legacy), "Legacy webOS platform");
+			html += createInfoItem("Chrome Version", platform.chrome || "N/A", "Chromium version number");
+			html += createInfoItem("Unknown Platform", formatBoolean(platform.unknown), "Unknown platform type");
+		} else {
+			html += '<div class="info-item"><span class="error">Failed to load platform information</span></div>';
+		}
+		
+		html += '</div>';
+		document.getElementById('platform-info-content').innerHTML = html;
+	}
+
+	function displayAppInfo(info) {
+		var html = '<div class="info-grid">';
+		
+		if (info) {
+			html += createInfoItem("App ID", info.id || "N/A", "Unique application identifier");
+			html += createInfoItem("App Root Path", info.root || "N/A", "Application root directory");
+			html += createInfoItem("Library Version", info.libVersion || "N/A", "webOSTV.js library version");
+			
+			if (info.info) {
+				html += createInfoItem("App Title", info.info.title || "N/A", "Application display name");
+				html += createInfoItem("App Version", info.info.version || "N/A", "Application version");
+				html += createInfoItem("Vendor", info.info.vendor || "N/A", "Application vendor");
+				html += createInfoItem("App Type", info.info.type || "N/A", "Application type");
+			}
+		} else {
+			html += '<div class="info-item"><span class="error">Failed to load app information</span></div>';
+		}
+		
+		html += '</div>';
+		document.getElementById('app-info-content').innerHTML = html;
+	}
+
+	function displayNetworkStatus(status) {
+		var html = '<div class="info-grid">';
+		
+		if (status.error) {
+			html += '<div class="info-item"><span class="error">' + JSON.stringify(status.error) + '</span></div>';
+		} else if (status) {
+			html += createInfoItem("Internet Available", formatBoolean(status.isInternetConnectionAvailable), "Internet connection status");
+			html += createInfoItem("Wired Connection", formatBoolean(status.wired), "Ethernet connection");
+			html += createInfoItem("WiFi Connection", formatBoolean(status.wifi), "Wireless connection");
+			html += createInfoItem("State", status.state || "N/A", "Connection state");
+			
+			// Show full response
+			html += '</div><div class="json-display">' + JSON.stringify(status, null, 2) + '</div>';
+		} else {
+			html += '<div class="info-item"><span class="loading">Loading network status...</span></div>';
+		}
+		
+		document.getElementById('network-info-content').innerHTML = html;
+	}
+
+	function displayTimeInfo(time) {
+		var html = '<div class="info-grid">';
+		
+		if (time.error) {
+			html += '<div class="info-item"><span class="error">' + JSON.stringify(time.error) + '</span></div>';
+		} else if (time) {
+			html += createInfoItem("UTC Time", time.utc || "N/A", "Coordinated Universal Time");
+			html += createInfoItem("Local Time", time.localTime || "N/A", "Local timezone time");
+			html += createInfoItem("Timezone", time.timezone || "N/A", "Current timezone");
+			
+			// Show full response
+			html += '</div><div class="json-display">' + JSON.stringify(time, null, 2) + '</div>';
+		} else {
+			html += '<div class="info-item"><span class="loading">Loading time information...</span></div>';
+		}
+		
+		document.getElementById('time-info-content').innerHTML = html;
+	}
+
+	function displayServiceResult(serviceName, result) {
+		var containerId = 'services-content';
+		var container = document.getElementById(containerId);
+		
+		if (!container) return;
+		
+		var html = '<div class="section" style="margin-top: 15px;">';
+		html += '<div class="section-title">' + serviceName;
+		
+		if (result.success) {
+			html += '<span class="status-badge status-success">SUCCESS</span>';
+		} else {
+			html += '<span class="status-badge status-error">FAILED</span>';
+		}
+		
+		html += '</div>';
+		
+		if (result.success) {
+			if (result.appsCount !== undefined) {
+				html += '<div class="info-item">';
+				html += '<div class="info-label">Apps Count</div>';
+				html += '<div class="info-value">' + result.appsCount + '</div>';
+				html += '<div class="info-description">Number of installed applications</div>';
+				html += '</div>';
+			}
+			
+			html += '<div class="json-display">' + JSON.stringify(result.data, null, 2) + '</div>';
+		} else {
+			html += '<div class="info-item"><span class="error">Error: ' + JSON.stringify(result.error) + '</span></div>';
+		}
+		
+		html += '</div>';
+		
+		container.innerHTML += html;
+	}
+
+	function createInfoItem(label, value, description) {
+		var badge = '';
+		if (typeof value === 'boolean') {
+			badge = value ? '<span class="status-badge status-success">YES</span>' : '<span class="status-badge status-error">NO</span>';
+		}
+		
+		return '<div class="info-item">' +
+			'<div class="info-label">' + label + '</div>' +
+			'<div class="info-value">' + value + badge + '</div>' +
+			'<div class="info-description">' + description + '</div>' +
+			'</div>';
+	}
+
+	function formatBoolean(value) {
+		if (value === true) return "Yes";
+		if (value === false) return "No";
+		return "Unknown";
+	}
+
+	function refreshAll() {
+		document.getElementById('services-content').innerHTML = '';
+		loadAllData();
+		updateTimestamp();
+	}
+
+	function updateTimestamp() {
+		var now = new Date();
+		document.getElementById('timestamp').textContent = 'Last updated: ' + now.toLocaleString();
+	}
+
+	// Update timestamp on load
+	window.addEventListener('load', function() {
+		updateTimestamp();
 	});
 </script>
 
 <body>
-	<div>
-		<h1>Hello, World!</h1>
+	<div class="container">
+		<div class="header">
+			<h1>🔍 webOS TV System Explorer</h1>
+			<p>Comprehensive system information and API testing dashboard</p>
+		</div>
+
+		<!-- Device Information Section -->
+		<div class="section">
+			<div class="section-title">📱 Device Information</div>
+			<div id="device-info-content">
+				<div class="loading">Loading device information...</div>
+			</div>
+		</div>
+
+		<!-- Platform Information Section -->
+		<div class="section">
+			<div class="section-title">🖥️ Platform Information</div>
+			<div id="platform-info-content">
+				<div class="loading">Loading platform information...</div>
+			</div>
+		</div>
+
+		<!-- System Information Section -->
+		<div class="section">
+			<div class="section-title">⚙️ System Information</div>
+			<div id="system-info-content">
+				<div class="loading">Loading system information...</div>
+			</div>
+		</div>
+
+		<!-- Application Information Section -->
+		<div class="section">
+			<div class="section-title">📦 Application Information</div>
+			<div id="app-info-content">
+				<div class="loading">Loading application information...</div>
+			</div>
+		</div>
+
+		<!-- Network Status Section -->
+		<div class="section">
+			<div class="section-title">🌐 Network Status</div>
+			<div id="network-info-content">
+				<div class="loading">Loading network status...</div>
+			</div>
+		</div>
+
+		<!-- Time Information Section -->
+		<div class="section">
+			<div class="section-title">🕐 Time Information</div>
+			<div id="time-info-content">
+				<div class="loading">Loading time information...</div>
+			</div>
+		</div>
+
+		<!-- Luna Services Section -->
+		<div class="section">
+			<div class="section-title">🔌 Luna Service API Tests</div>
+			<div id="services-content">
+				<div class="loading">Testing Luna Services...</div>
+			</div>
+		</div>
+
+		<div class="timestamp" id="timestamp"></div>
 	</div>
+
+	<button class="refresh-btn" onclick="refreshAll()">🔄 Refresh All</button>
 </body>
 
 </html>
